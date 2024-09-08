@@ -1,0 +1,15 @@
+let score = 0;
+
+const answer1 = prompt("What is the capital of France?\n(a) Berlin\n(b) Madrid\n(c) Paris\nYour answer: ");
+if (answer1.toLowerCase() === 'c') score++;
+
+
+const answer2 = prompt("What is 2 + 2?\n(a) 3\n(b) 4\n(c) 5\nYour answer: ");
+if (answer2.toLowerCase() === 'b') score++;
+
+
+const answer3 = prompt("What is the color of the sky?\n(a) Blue\n(b) Green\n(c) Red\nYour answer: ");
+if (answer3.toLowerCase() === 'a') score++;
+
+
+console.log(`You got ${score} out of 3 correct.`);
