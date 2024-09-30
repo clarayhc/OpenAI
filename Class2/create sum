@@ -1,0 +1,6 @@
+let num1 = parseInt(prompt("give me a number"));
+let num2 = parseInt(prompt("now, give me another number"));
+
+let sum = num1 + num2;
+
+console.log(`${sum}`);
