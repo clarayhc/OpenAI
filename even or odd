@@ -1,4 +1,0 @@
-let n = parseInt(prompt("Give me a whole number"));
-
-const result = (n % 2 == 0) ? "even": "odd";
-console.log(`the number is ${result}`)
