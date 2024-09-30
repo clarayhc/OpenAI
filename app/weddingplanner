@@ -1,1 +1,65 @@
+import { promptGPT } from "./shared/openai.ts";
+import { ask, say } from "./shared/cli.ts";
 
+// Initialize an empty array for storing weddings
+let weddings = [];
+
+say("Welcome to your AI wedding planner.");
+
+if (weddings.length === 0) {
+  say("No weddings saved.");
+} else {
+  weddings.forEach((wedding, index) => say(`${index + 1}: ${wedding.title} (${wedding.numGuests} guests)`));
+}
+
+const response = await ask("Press 'N' for a new wedding or 'A' to add details to an existing one:");
+
+if (response.toLowerCase() === "n") await createWedding();
+else if (response.toLowerCase() === "a") await editWedding();
+
+async function createWedding() {
+  const title = await ask("Wedding theme or name?");
+  const couple = await ask("Couple's names?");
+  const location = await ask("Wedding location?");
+  const guests = await ask("Number of guests?");
+  const specialRequests = await ask("Any special requests for the wedding?");
+  
+  const description = await promptGPT(
+    `Plan a wedding for ${couple}, with the theme ${title}, at ${location}, for ${guests} guests. Special requests: ${specialRequests}. Provide a description focusing on the ambiance, decor, and key moments.`,
+    { temperature: 0.8, max_tokens: 500 }
+  );
+
+  const checklist = await promptGPT(
+    `Generate a high-level checklist for the wedding of ${couple} with theme ${title}. Include important preparation items like venue, catering, decor, and guest management.`,
+    { temperature: 0.7 }
+  );
+
+  weddings.push({ title, couple, location, guests, description, checklist });
+  say(`Wedding plan for ${couple} created!`);
+}
+
+async function editWedding() {
+  if (weddings.length === 0) {
+    say("No weddings to edit.");
+    return;
+  }
+
+  weddings.forEach((wedding, index) => say(`${index + 1}: ${wedding.title}`));
+  const index = parseInt(await ask("Which wedding would you like to edit? (Enter number)")) - 1;
+  if (index < 0 || index >= weddings.length) {
+    return say("Invalid selection.");
+  }
+
+  const changes = await ask("What would you like to change or add?");
+  const updatedDescription = await promptGPT(
+    `Continue planning a wedding for ${weddings[index].couple}. Incorporate the following changes: ${changes}. Update the wedding description.`,
+    { temperature: 0.8, max_tokens: 500 }
+  );
+
+  weddings[index].description += `\n${updatedDescription}`;
+  say(`The wedding plan for ${weddings[index].couple} has been updated!`);
+}
+
+async function saveWeddings() {
+  await Deno.writeTextFile("weddings.json", JSON.stringify({ weddings }));
+}
