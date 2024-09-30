@@ -1,7 +1,0 @@
-var firstName = "Clara";
-var lastName = "Chen";
-function getRandomName(name1, name2) {
-  return Math.random() < 0.5 ? name1 : name2;
-}
-var randomName = getRandomName(firstName, lastName);
-console.log("Randomly selected name:", randomName);
