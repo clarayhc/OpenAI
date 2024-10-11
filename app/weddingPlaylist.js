@@ -90,6 +90,7 @@ async function fetchPlaylists() {
 //     { temperature: 0.8, max_tokens: 500 }
 //   );
 
-//   weddings[index].description += `\n${updatedDescription}`;
+//   
+//weddings[index].description += `\n${updatedDescription}`;
 //   say(`The wedding plan for ${weddings[index].couple} has been updated!`);
 // }
