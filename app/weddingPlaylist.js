@@ -1,98 +1,134 @@
-import { promptGPT } from "../shared/openai.ts";
-import { ask, say } from "../shared/cli.ts";
-
+import { promptGPT } from "../shared/openai.ts"
+import { ask, say } from "../shared/cli.ts"
+import { getGenre, getTrackRecommendation } from "../shared/spotify.ts"
+import { fuzzyFind, millisToMinutesAndSeconds } from "./utils.js"
+/**
+ * @typedef {import('../types/spotifyTypes').RecommendationRequest} RecommendationRequest
+ */
 // Initialize an empty array for storing weddings
 
-say("Welcome to your AI wedding planner.");
+say("Welcome to your AI wedding planner.")
+const response = await ask(
+  "Type create to add songs to the playlist, type view to view existing playlist"
+)
 
+if (response.toLowerCase() === "create") await createWedding()
+else if (response.toLowerCase() === "view") await getPlaylist()
 
-const response = await ask("Start a new playlist? Type y to start a new playlist, type n to view existing playlists");
-
-if (response.toLowerCase() === "y") await createWedding();
-else if (response.toLowerCase() === "n") await getPlaylists();
-
-async function createWedding() {
-  let weddings = await fetchPlaylists()
-  const theme = await ask("What theme will your wedding have? (ex) fun, serious, casual, etc.");
-  const couple = await ask("Couple's names?");
-  const type = await ask("What type of music do you prefer? (ex) classical, pop, jazz, etc. ");
-  const lyric = await ask("Would you like the music to have lyrics?");
-  
-  const response = await promptGPT(
-    `Plan a wedding song playlist with the theme ${theme}, with genre ${type}, with ${lyric} lyrics. You must respond 
-    in a JSON object only with the following format {"playlist": [{"title": string, "artist": string}]}`,
-    { temperature: 0.8 , response_format: {"type": "json_object" }},
-    
-  );
-  
-  const playlist = JSON.parse(response);
-  say(`Wedding playlist for ${couple} created!`);
-  await savePlaylist(weddings.length+1, playlist)
-}
-
-async function getPlaylists(){
-  const savedPlaylists = await fetchPlaylists();
-  savedPlaylists.forEach((playlist, i) => {
-    const list = playlist["playlist"]
-    say(`Here is playlist #${i + 1}`)
-    list.forEach((song, j)=>{
-      say(`${j + 1}. ${song['title']} by ${song['artist']}`)
-    })
-    say("\n")
+async function getPlaylist() {
+  const playlist = await fetchPlaylist()
+  const songList = playlist['playlist']
+  songList.forEach((song, i) => {
+    console.log(`${i+1}. ${song['name']} by ${song['artists'][0]['name']} : ${millisToMinutesAndSeconds(song['duration'])} `)
   })
 }
-
-
-async function getStatus() {
-  const text = await Deno.readTextFile("status.txt")
-  const playlistNumber = parseInt(text)
-  return playlistNumber
-}
-
-async function savePlaylist(playlistNumber, playlist) {
-  await Deno.writeTextFile(`./playlists/${playlistNumber}.json`, JSON.stringify(playlist));
-  await Deno.writeTextFile(`status.txt`, playlistNumber)
-}
-
-async function fetchPlaylists() {
-  const playlistNumber = await getStatus()
-  let pNums = []
-  for (let i = 0; i <= playlistNumber; i++){
-    pNums.push(i)
-  }
- 
-  const playlists = await Promise.all(pNums.map(async (i) => {
-    const text = await Deno.readTextFile(`./playlists/${i}.json`);
-    const obj = JSON.parse(text);
-
-    return obj;
-  }));
+async function createWedding() {
+  const availableGenres = await getGenre()
   
-  return playlists
+  const theme = await ask(
+    "What theme will your wedding have? (ex) fun, serious, casual, etc."
+  )
+  const genreResponse = await promptGPT(
+    `Give a list of 5 recommended Spotify music genre based on the theme of ${theme}. Response in JSON format and in lowercase:
+    {
+      genres: []string
+    }`,
+    { temperature: 0.8, response_format: { type: "json_object" } }
+  )
+  const genres = JSON.parse(genreResponse)['genres']
+  let spotifyGenres = []
+  
+  genres.forEach((genre) => {
+    const found = fuzzyFind(availableGenres, genre)
+    if (found && !spotifyGenres.find(x => x === found)) {
+      spotifyGenres.push(found)
+    }
+  })
+
+  const type = await ask(
+    `Here are the recommended genres ${spotifyGenres}. Type y to continue.`
+  )
+
+  if (type !== "y") {
+    return
+  }
+
+  const lyric = await ask("Would you like the music to have lyrics?")
+
+  const response = await promptGPT(
+    `Calculate the following factors to make a track recommendation request to Spotify API based on these user preferences
+    'Theme of music': '${theme}', 'Type of music': '${type}', 'Lyrics Enabled': '${lyric}'. Limit to 10 tracks. 
+    Calculate the factors for the following JSON fields. 
+    {
+      limit: number
+      min_acousticness?: number
+      max_acousticness?: number
+      target_acousticness?: number
+      min_danceability?: number
+      max_danceability?: number
+      target_danceability?: number
+      min_energy?: number
+      max_energy?: number
+      target_energy?: number
+      min_intrumentalness?: number
+      max_instrumentalness?: number
+      target_instrumentalness?: number
+      min_key?: number
+      max_key?: number
+      target_key?: number
+      min_speechiness?: number
+      max_speechiness?: number
+      target_speechiness?: number
+      min_tempo?: number
+      max_tempo?: number
+      target_tempo?: number
+    }`,
+    { temperature: 0.8, response_format: { type: "json_object" } }
+  )
+  const request = JSON.parse(response)
+  const recs = await fetchRecommendation(request, spotifyGenres)
+  await savePlaylist(recs)
 }
 
+async function savePlaylist(playlist) {
+  const fetchedPlaylist = await fetchPlaylist()
+  fetchedPlaylist['playlist'].push(...playlist)
+  await Deno.writeTextFile(
+    `./playlist.json`,
+    JSON.stringify(fetchedPlaylist, null, 2)
+  )
+}
 
-// async function editWedding() {
-//   if (weddings.length === 0) {
-//     say("No weddings to edit.");
-//     return;
-//   }
+async function fetchPlaylist() {
+  const text = await Deno.readTextFile(`./playlist.json`)
+  const playlist = JSON.parse(text)
+  return playlist
+}
 
-//   weddings.forEach((wedding, index) => say(`${index + 1}: ${wedding.title}`));
-//   const index = parseInt(await ask("Which wedding would you like to edit? (Enter number)")) - 1;
-//   if (index < 0 || index >= weddings.length) {
-//     return say("Invalid selection.");
-//   }
-
-//   const changes = await ask("What would you like to change or add?");
-//   const updatedDescription = await promptGPT(
-//     `Continue planning a wedding for ${weddings[index].couple}. Incorporate the following changes: ${changes}. Update the wedding description.`,
-//     { temperature: 0.8, max_tokens: 500 }
-//   );
-
-//   
-//weddings[index].description += `\n${updatedDescription}`;
-//   say(`The wedding plan for ${weddings[index].couple} has been updated!`);
-// }
-
-//djsu
+/**
+ * @param {RecommendationRequest} request
+ * @param {string[]} genres
+ */
+async function fetchRecommendation(request, genres) {
+  request.seed_genres = genres
+  const response = await getTrackRecommendation(request)
+  const tracks = response['tracks']
+  const processedTracks = tracks.map((track) => {
+    const artists = track['artists'].map((artist) => {
+      return {
+        id: artist['id'],
+        name: artist['name'],
+        url: artist['external_urls']['spotify']
+      }
+    })
+    return {
+      id: track['id'],
+      name: track['name'],
+      artists: artists,
+      popularity: track['popularity'],
+      url: track['external_urls']['spotify'],
+      duration: track['duration_ms']
+    }
+  })
+  return processedTracks
+}
