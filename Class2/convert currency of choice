@@ -1,4 +1,0 @@
-const exchangeRate = 32.04;
-const usd = await prompt('Enter amount in USD: ');
-const nt = parseFloat(usd) * exchangeRate;
-console.log(${usd} USD is approximately ${nt.toFixed(2)} NT.);

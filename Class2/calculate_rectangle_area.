@@ -1,4 +1,0 @@
-const length = parseFloat(prompt("Enter the length: "));
-const width = parseFloat(prompt("Enter the width: "));
-const area = length * width;
-console.log(The area of the rectangle is ${area}.);
