@@ -10,11 +10,12 @@ import { fuzzyFind, millisToMinutesAndSeconds } from "./utils.js";
 
 say("Welcome to your AI wedding planner.");
 const response = await ask(
-  "Type create to add songs to the playlist, type view to view existing playlist"
+  "Type create to add songs to the playlist, type view to view existing playlist, type delete to delete songs from existing playlist"
 );
 
 if (response.toLowerCase() === "create") await createWedding();
 else if (response.toLowerCase() === "view") await getPlaylist();
+else if (response.toLowerCase() === "delete") await songDelete();
 
 async function getPlaylist() {
   const playlist = await fetchPlaylist();
@@ -25,8 +26,9 @@ async function getPlaylist() {
 }
 
 async function createWedding() {
+  //For Spotify Recommendation, you need to input spotify genres.
   const availableGenres = await getGenre();
-
+  
   // Using Select for theme
   const theme = await Select.prompt({
     message: "Choose your wedding theme",
@@ -54,7 +56,7 @@ async function createWedding() {
   // Prompt GPT for music track recommendations
   const genreResponse = await promptGPT(
     `Calculate the following factors to make a track recommendation request to Spotify API based on these user preferences:
-    'Theme of music': '${theme}', 'Genre': '${genre}', 'Lyrics Enabled': '${lyric}'. Limit to 10 tracks.`,
+    'Theme of music': '${theme}', 'Genre': '${genre}', 'Lyrics Enabled': '${lyric}'. Limit to 10 tracks. Create json file.`,
     { temperature: 0.8, response_format: { type: "json_object" } }
   );
 
@@ -70,6 +72,7 @@ async function savePlaylist(playlist) {
     `./playlist.json`,
     JSON.stringify(fetchedPlaylist, null, 2)
   );
+  await getPlaylist();
 }
 
 async function fetchPlaylist() {
@@ -105,3 +108,26 @@ async function fetchRecommendation(request, genres) {
   });
   return processedTracks;
 }
+
+async function songDelete() {
+    const playlist = await fetchPlaylist();
+    const songList = playlist['playlist'];
+    const chosenSong = await Select.prompt({
+        message: "Select the song you would like to delete from your playlist.",    
+        options: songList.flatMap((x,i) => `${i}.${x['name']}`)
+      });
+    const deleteIndex = parseInt(chosenSong.split('.')[0]);
+    await deleteSong(deleteIndex);      
+    await getPlaylist();
+}
+
+
+async function deleteSong(index) { 
+    const playlist = await fetchPlaylist();
+    const songList = playlist['playlist'];
+    songList.splice(index, 1);
+    await Deno.writeTextFile(
+        `./playlist.json`, JSON.stringify(playlist, null, 2)
+    );
+}
+

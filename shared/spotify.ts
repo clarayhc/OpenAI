@@ -25,6 +25,8 @@ type RecommendationRequest = {
   max_tempo?: number
   target_tempo?: number
 }
+
+// 
 const initSpotify = async () => {
   const client_id = getEnvVariable("SPOTIFY_ID")
   if (!client_id) throw new Error("SPOTIFY_ID not found.")
@@ -56,7 +58,7 @@ export function encodeRecommendationRequest(
       params.append(key, value.toString())
     }
   }
-
+  
   return params.toString()
 }
 
@@ -79,8 +81,8 @@ export async function getGenre() {
     console.error("Error fetching recommendations:", error)
     throw error
   }
-
 }
+
 // https://api.spotify.com/v1/recommendations
 export async function getTrackRecommendation(request: RecommendationRequest) {
   const token = await initSpotify()
